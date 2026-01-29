@@ -7,8 +7,12 @@ services:
       - "11434:11434"
     volumes:
       - ollama:/root/.ollama
+      - ./entrypoint.sh:/entrypoint.sh:ro
+    entrypoint: ["/bin/bash", "/entrypoint.sh"]
+    env_file:
+      - .env
     environment:
-      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_HOST=${OLLAMA_HOST:-0.0.0.0}
     deploy:
       resources:
         reservations:
@@ -16,20 +20,28 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     restart: unless-stopped
 
   ngrok:
     image: ngrok/ngrok:latest
     container_name: ngrok-ollama
     depends_on:
-      - ollama
-    command:
-      - "http"
-      - "--url"
-      - "your-subdomain.ngrok-free.app"
-      - "ollama:11434"
+      ollama:
+        condition: service_healthy
+    volumes:
+      - ./ngrok-entrypoint.sh:/entrypoint.sh:ro
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
+    env_file:
+      - .env
     environment:
-      - NGROK_AUTHTOKEN=TU_TOKEN_AQUI
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+      - NGROK_DOMAIN=${NGROK_DOMAIN:-}
     restart: unless-stopped
 
 volumes:
