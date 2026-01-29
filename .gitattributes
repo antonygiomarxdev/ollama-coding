@@ -1,0 +1,4 @@
+# Ensure shell scripts and config use LF so they work in Linux containers (e.g. ngrok entrypoint).
+*.sh text eol=lf
+*.yml text eol=lf
+.env.example text eol=lf
