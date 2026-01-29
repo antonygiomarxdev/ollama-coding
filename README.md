@@ -27,9 +27,10 @@ git clone <repository-url>
 cd ollama-coding
 ```
 
-2. Configure your ngrok authtoken (if using the ngrok service):
-   - Edit `docker-compose.yml` and replace `NGROK_AUTHTOKEN` with your token
-   - Optionally, change the URL in the ngrok command
+2. Configure environment variables:
+   - Copy `.env.example` to `.env` (e.g. `cp .env.example .env` or on Windows: `copy .env.example .env`)
+   - Edit `.env` and set `NGROK_AUTHTOKEN` (get it from [ngrok dashboard](https://dashboard.ngrok.com/get-started/your-authtoken))
+   - Optionally set `NGROK_DOMAIN` for a reserved domain, or leave empty for a random URL
 
 3. Start the services:
 ```bash
@@ -40,9 +41,12 @@ docker-compose up -d
 
 ```
 ollama-coding/
+├── .env                  # Your secrets (create from .env.example, do not commit)
+├── .env.example          # Template for environment variables
 ├── docker-compose.yml    # Docker services configuration
-├── entrypoint.sh         # Initialization script with hardware detection
-└── README.md            # This file
+├── entrypoint.sh         # Ollama initialization script with hardware detection
+├── ngrok-entrypoint.sh   # Ngrok wrapper (optional reserved domain)
+└── README.md             # This file
 ```
 
 ## 🔧 Configuration
@@ -113,13 +117,16 @@ curl http://localhost:11434/api/generate -d '{
 
 ## ⚙️ Environment Variables
 
+All sensitive values live in `.env` (copy from `.env.example`). Do not commit `.env`.
+
 ### Ollama
 
-- `OLLAMA_HOST`: Configured as `0.0.0.0` to accept external connections
+- `OLLAMA_HOST`: Host to bind (default: `0.0.0.0`)
 
 ### ngrok
 
-- `NGROK_AUTHTOKEN`: ngrok authentication token (required)
+- `NGROK_AUTHTOKEN`: ngrok authentication token (required for ngrok service)
+- `NGROK_DOMAIN`: Optional reserved domain (e.g. `my-app.ngrok-free.dev`). Leave unset for a random URL.
 
 ## 🔒 Security
 
