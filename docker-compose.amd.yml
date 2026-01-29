@@ -1,0 +1,49 @@
+# Use this when your AMD GPU has more VRAM than NVIDIA. Ollama uses one backend at a time (CUDA or ROCm); VRAM from different vendors cannot be combined.
+# Run: docker compose -f docker-compose.amd.yml up -d
+# Requires: ROCm on host (Linux) or AMD drivers (Windows). Set OLLAMA_MODEL in .env to the desired model (entrypoint VRAM detection is NVIDIA-only).
+services:
+  ollama:
+    image: ollama/ollama:rocm
+    container_name: ollama-qwen3
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama:/root/.ollama
+      - ./entrypoint.sh:/entrypoint.sh:ro
+    entrypoint: ["/bin/bash", "/entrypoint.sh"]
+    env_file:
+      - .env
+    environment:
+      - OLLAMA_HOST=${OLLAMA_HOST:-0.0.0.0}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-}
+      - OLLAMA_NUM_PARALLEL=${OLLAMA_NUM_PARALLEL:-}
+      - ROCR_VISIBLE_DEVICES=${ROCR_VISIBLE_DEVICES:-}
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+    restart: unless-stopped
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: ngrok-ollama
+    depends_on:
+      ollama:
+        condition: service_healthy
+    volumes:
+      - ./ngrok-entrypoint.sh:/entrypoint.sh:ro
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
+    env_file:
+      - .env
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+      - NGROK_DOMAIN=${NGROK_DOMAIN:-}
+    restart: unless-stopped
+
+volumes:
+  ollama:
