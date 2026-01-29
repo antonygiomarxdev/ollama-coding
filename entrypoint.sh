@@ -6,9 +6,13 @@ RAM=$(free -g | awk 'NR==2{print $2}')
 echo "Detected: GPU=$GPU, VRAM=${VRAM}GB, RAM=${RAM}GB"
 
 # Auto-model by hardware
-if [ $VRAM -ge 16 ]; then MODEL="qwen3-coder:30b:Q4_K_M"; fi 
-elif [ $VRAM -ge 8 ]; then MODEL="qwen3-coder:30b:IQ3_M"; fi 
-else MODEL="qwen3-coder:7b:Q4_0"; fi  
+if [ $VRAM -ge 16 ]; then 
+  MODEL="qwen3-coder:30b:Q4_K_M"
+elif [ $VRAM -ge 8 ]; then 
+  MODEL="qwen3-coder:30b:IQ3_M"
+else 
+  MODEL="qwen3-coder:7b:Q4_0"
+fi  
 
 ollama serve &
 sleep 10
