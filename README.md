@@ -115,6 +115,50 @@ curl http://localhost:11434/api/generate -d '{
 }'
 ```
 
+## 🖥️ IDE Integration
+
+Use this Ollama instance as the backend for AI features in your editor. Base URL:
+
+- **Local**: `http://localhost:11434`
+- **Remote (ngrok)**: `https://<your-ngrok-domain>` (e.g. from `docker logs ngrok-ollama`)
+
+Ollama exposes an **OpenAI-compatible** API at `/v1` (e.g. `http://localhost:11434/v1`). Prefer that when the IDE supports “OpenAI-compatible” or “Custom endpoint”.
+
+### Cursor
+
+1. Open **Settings** → **Cursor Settings** → **Models** (or **Features** → **Models**).
+2. Add a **Custom** / **OpenAI-compatible** model.
+3. Set:
+   - **API Base URL**: `http://localhost:11434/v1`
+   - **API Key**: `ollama` (Ollama ignores it; some clients require a non-empty value).
+4. Choose the model name that matches your container (e.g. `qwen3-coder:7b`, `qwen3-coder:30b:IQ3_M`).
+
+For a **remote** machine (e.g. another PC that reaches this server via ngrok):
+
+- **API Base URL**: `https://<your-ngrok-domain>/v1` (same API key).
+
+### VS Code (Continue / Ollama)
+
+- **Continue**: In the Continue extension, add the **Ollama** provider. Set the server URL to `http://localhost:11434` (or your ngrok URL). Select the same model name as in Ollama (e.g. `qwen3-coder:7b`).
+- **Ollama extension**: Usually uses `http://localhost:11434` by default. If the editor runs on another machine, set the env var or extension setting to your ngrok URL (e.g. `https://<your-ngrok-domain>`).
+
+### JetBrains (IntelliJ, PyCharm, etc.)
+
+- Use a plugin that supports **OpenAI-compatible** or **Ollama** backends.
+- Set the base URL to `http://localhost:11434/v1` (or `https://<your-ngrok-domain>/v1` for remote).
+- Use API key `ollama` if the plugin requires one.
+- Model name must match exactly (e.g. `qwen3-coder:7b`).
+
+### Checking the model name
+
+Containers use the name chosen by `entrypoint.sh` (see [Models by Hardware](#models-by-hardware)). List models from the host:
+
+```bash
+curl http://localhost:11434/api/tags
+```
+
+Use the `name` (or `name` without `:latest`) in your IDE as the model ID.
+
 ## ⚙️ Environment Variables
 
 All sensitive values live in `.env` (copy from `.env.example`). Do not commit `.env`.
