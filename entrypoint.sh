@@ -5,14 +5,16 @@ VRAM=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits | head 
 RAM=$(free -g | awk 'NR==2{print $2}')
 echo "Detected: GPU=$GPU, VRAM=${VRAM}GB, RAM=${RAM}GB"
 
-# Auto-model by hardware
-if [ $VRAM -ge 16 ]; then 
+# Auto-model by hardware (override with OLLAMA_MODEL env var)
+if [ -n "$OLLAMA_MODEL" ]; then
+  MODEL="$OLLAMA_MODEL"
+elif [ $VRAM -ge 16 ]; then
   MODEL="qwen3-coder:30b:Q4_K_M"
-elif [ $VRAM -ge 8 ]; then 
+elif [ $VRAM -ge 8 ]; then
   MODEL="qwen3-coder:30b:IQ3_M"
-else 
+else
   MODEL="qwen3-coder:7b:Q4_0"
-fi  
+fi
 
 ollama serve &
 sleep 10
