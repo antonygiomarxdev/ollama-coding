@@ -31,21 +31,5 @@ services:
       start_period: 90s
     restart: unless-stopped
 
-  ngrok:
-    image: ngrok/ngrok:latest
-    container_name: ngrok-ollama
-    depends_on:
-      ollama:
-        condition: service_healthy
-    volumes:
-      - ./ngrok-entrypoint.sh:/entrypoint.sh:ro
-    entrypoint: ["/bin/sh", "/entrypoint.sh"]
-    env_file:
-      - .env
-    environment:
-      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
-      - NGROK_DOMAIN=${NGROK_DOMAIN:-}
-    restart: unless-stopped
-
 volumes:
   ollama:
