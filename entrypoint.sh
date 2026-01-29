@@ -1,19 +1,20 @@
 #!/bin/bash
-# Detecta hardware & auto-config
+# Hardware detection and auto-config. VRAM from nvidia-smi is in MB.
 nvidia-smi &> /dev/null && GPU="nvidia" || GPU="cpu"
-VRAM=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits | head -n1 || echo 0)
+VRAM_MB=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits | head -n1 || echo 0)
 RAM=$(free -g | awk 'NR==2{print $2}')
-echo "Detected: GPU=$GPU, VRAM=${VRAM}GB, RAM=${RAM}GB"
+VRAM_GB=$((VRAM_MB / 1024))
+echo "Detected: GPU=$GPU, VRAM=${VRAM_GB}GB (${VRAM_MB}MB), RAM=${RAM}GB"
 
-# Auto-model by hardware (override with OLLAMA_MODEL env var)
+# Auto-select model by VRAM (override with OLLAMA_MODEL). Prefer qwen3-coder (v3) when VRAM allows; no 7b in v3, so use qwen2.5-coder for 8GB and below.
 if [ -n "$OLLAMA_MODEL" ]; then
   MODEL="$OLLAMA_MODEL"
-elif [ $VRAM -ge 16 ]; then
-  MODEL="qwen3-coder:30b:Q4_K_M"
-elif [ $VRAM -ge 8 ]; then
-  MODEL="qwen3-coder:30b:IQ3_M"
+elif [ "$VRAM_MB" -ge 16384 ]; then
+  MODEL="qwen3-coder:30b-a3b-q4_K_M"
+elif [ "$VRAM_MB" -ge 8192 ]; then
+  MODEL="qwen2.5-coder:7b"
 else
-  MODEL="qwen3-coder:7b:Q4_0"
+  MODEL="qwen2.5-coder:3b"
 fi
 
 ollama serve &

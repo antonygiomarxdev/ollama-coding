@@ -53,21 +53,21 @@ ollama-coding/
 
 ### Models by Hardware
 
-The `entrypoint.sh` script automatically selects the model based on available VRAM (unless you set `OLLAMA_MODEL`):
+The `entrypoint.sh` script picks a model from available VRAM in **megabytes** (override with `OLLAMA_MODEL`). Model names match the [Ollama library](https://ollama.com/library). **qwen3-coder (v3)** is preferred when VRAM allows; it has no 7B variant, so 8GB and below use qwen2.5-coder.
 
-- **≥16GB VRAM**: `qwen3-coder:30b:Q4_K_M`
-- **≥8GB VRAM**: `qwen3-coder:30b:IQ3_M`
-- **<8GB VRAM**: `qwen3-coder:7b:Q4_0`
+- **≥16GB VRAM**: `qwen3-coder:30b-a3b-q4_K_M` (~19GB) — qwen3-coder v3
+- **≥8GB VRAM**: `qwen2.5-coder:7b` (~4.7GB)
+- **<8GB VRAM**: `qwen2.5-coder:3b` (~1.9GB)
 
 ### Using Other Models
 
-If you prefer a different model (e.g. `llama3.2`, `mistral`, `codellama`, `deepseek-coder`):
+To use a different model (e.g. **qwen3-coder** v3 when you have enough VRAM, or `llama3.2`, `mistral`, `codellama`):
 
-1. **Override at startup**: Set `OLLAMA_MODEL` in `.env` (e.g. `OLLAMA_MODEL=llama3.2`). The entrypoint will pull and use that model instead of the hardware-based default.
-2. **Pull more models later**: Once the stack is running, you can pull extra models via the API or from the host:
+1. **Override at startup**: Set `OLLAMA_MODEL` in `.env` (e.g. `OLLAMA_MODEL=qwen3-coder:30b-a3b-q4_K_M` or `OLLAMA_MODEL=llama3.2`). The entrypoint will pull and use that model instead of the hardware-based default.
+2. **Pull more models later**: With the stack running, pull via the API or from the host:
    - **From host**: `curl -X POST http://localhost:11434/api/pull -d '{"model":"mistral"}'`
    - **Inside container**: `docker exec ollama-qwen3 ollama pull mistral`
-3. **Browse the library**: [Ollama Model Library](https://ollama.com/library) lists all official models and tags (e.g. `llama3.2`, `qwen2.5-coder`, `codellama`). Use the exact name in `OLLAMA_MODEL` or in `/api/pull`.
+3. **Browse the library**: [Ollama Model Library](https://ollama.com/library) lists official models and tags. Use the exact tag in `OLLAMA_MODEL` or in `/api/pull`. For coding, **qwen3-coder** (v3) is the current preferred series when VRAM allows (e.g. 16GB+ for 30B).
 
 ### Ports
 
@@ -119,7 +119,7 @@ Example usage with curl:
 
 ```bash
 curl http://localhost:11434/api/generate -d '{
-  "model": "qwen3-coder:7b",
+  "model": "qwen2.5-coder:7b",
   "prompt": "Why is the sky blue?",
   "stream": false
 }'
@@ -141,7 +141,7 @@ Ollama exposes an **OpenAI-compatible** API at `/v1` (e.g. `http://localhost:114
 3. Set:
    - **API Base URL**: `http://localhost:11434/v1`
    - **API Key**: `ollama` (Ollama ignores it; some clients require a non-empty value).
-4. Choose the model name that matches your container (e.g. `qwen3-coder:7b`, `qwen3-coder:30b:IQ3_M`).
+4. Choose the model name that matches your container (e.g. `qwen2.5-coder:7b`, `qwen3-coder:30b-a3b-q4_K_M`). Run `curl http://localhost:11434/api/tags` to see exact names.
 
 For a **remote** machine (e.g. another PC that reaches this server via ngrok):
 
@@ -149,7 +149,7 @@ For a **remote** machine (e.g. another PC that reaches this server via ngrok):
 
 ### VS Code (Continue / Ollama)
 
-- **Continue**: In the Continue extension, add the **Ollama** provider. Set the server URL to `http://localhost:11434` (or your ngrok URL). Select the same model name as in Ollama (e.g. `qwen3-coder:7b`).
+- **Continue**: In the Continue extension, add the **Ollama** provider. Set the server URL to `http://localhost:11434` (or your ngrok URL). Select the same model name as in Ollama (e.g. `qwen2.5-coder:7b`).
 - **Ollama extension**: Usually uses `http://localhost:11434` by default. If the editor runs on another machine, set the env var or extension setting to your ngrok URL (e.g. `https://<your-ngrok-domain>`).
 
 ### JetBrains (IntelliJ, PyCharm, etc.)
@@ -157,7 +157,7 @@ For a **remote** machine (e.g. another PC that reaches this server via ngrok):
 - Use a plugin that supports **OpenAI-compatible** or **Ollama** backends.
 - Set the base URL to `http://localhost:11434/v1` (or `https://<your-ngrok-domain>/v1` for remote).
 - Use API key `ollama` if the plugin requires one.
-- Model name must match exactly (e.g. `qwen3-coder:7b`).
+- Model name must match exactly (e.g. `qwen2.5-coder:7b`).
 
 ### Checking the model name
 
@@ -178,9 +178,9 @@ Use the `name` (or `name` without `:latest`) in your IDE as the model ID.
   ```
 - **Models**: The API supports pulling by tag (e.g. `llama3.2:latest`). To refresh a model to the latest version, pull again:
   ```bash
-  curl -X POST http://localhost:11434/api/pull -d '{"model":"qwen3-coder:7b"}'
+  curl -X POST http://localhost:11434/api/pull -d '{"model":"qwen2.5-coder:7b"}'
   ```
-  Or from inside the container: `docker exec ollama-qwen3 ollama pull qwen3-coder:7b`. New tags and models appear in the [Ollama library](https://ollama.com/library); there is no separate “model API” — you use the same `/api/pull` with the model name.
+  Or from inside the container: `docker exec ollama-qwen3 ollama pull qwen2.5-coder:7b`. New tags and models appear in the [Ollama library](https://ollama.com/library); there is no separate “model API” — you use the same `/api/pull` with the model name.
 
 ## 📡 Ollama API & Model Library
 
@@ -203,7 +203,7 @@ All sensitive values live in `.env` (copy from `.env.example`). Do not commit `.
 ### Ollama
 
 - `OLLAMA_HOST`: Host to bind (default: `0.0.0.0`)
-- `OLLAMA_MODEL`: Override auto-selected model (optional). Examples: `llama3.2`, `mistral`, `codellama`, `deepseek-coder`. Leave empty for hardware-based default.
+- `OLLAMA_MODEL`: Override auto-selected model (optional). Prefer **qwen3-coder** (v3) when VRAM allows, e.g. `qwen3-coder:30b-a3b-q4_K_M`. Others: `llama3.2`, `mistral`, `qwen2.5-coder:7b`. Leave empty for hardware-based default.
 
 ### ngrok
 
