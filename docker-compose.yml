@@ -13,6 +13,9 @@ services:
     environment:
       - OLLAMA_HOST=${OLLAMA_HOST:-0.0.0.0}
       - OLLAMA_MODEL=${OLLAMA_MODEL:-}
+      - OLLAMA_NUM_PARALLEL=${OLLAMA_NUM_PARALLEL:-}
+      - OLLAMA_VULKAN=${OLLAMA_VULKAN:-}
+      - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-}
     deploy:
       resources:
         reservations:
@@ -21,11 +24,11 @@ services:
               count: all
               capabilities: [gpu]
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      test: ["CMD", "ollama", "list"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 90s
     restart: unless-stopped
 
   ngrok:
