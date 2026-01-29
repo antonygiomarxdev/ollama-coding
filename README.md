@@ -53,11 +53,21 @@ ollama-coding/
 
 ### Models by Hardware
 
-The `entrypoint.sh` script automatically selects the model based on available VRAM:
+The `entrypoint.sh` script automatically selects the model based on available VRAM (unless you set `OLLAMA_MODEL`):
 
 - **≥16GB VRAM**: `qwen3-coder:30b:Q4_K_M`
 - **≥8GB VRAM**: `qwen3-coder:30b:IQ3_M`
 - **<8GB VRAM**: `qwen3-coder:7b:Q4_0`
+
+### Using Other Models
+
+If you prefer a different model (e.g. `llama3.2`, `mistral`, `codellama`, `deepseek-coder`):
+
+1. **Override at startup**: Set `OLLAMA_MODEL` in `.env` (e.g. `OLLAMA_MODEL=llama3.2`). The entrypoint will pull and use that model instead of the hardware-based default.
+2. **Pull more models later**: Once the stack is running, you can pull extra models via the API or from the host:
+   - **From host**: `curl -X POST http://localhost:11434/api/pull -d '{"model":"mistral"}'`
+   - **Inside container**: `docker exec ollama-qwen3 ollama pull mistral`
+3. **Browse the library**: [Ollama Model Library](https://ollama.com/library) lists all official models and tags (e.g. `llama3.2`, `qwen2.5-coder`, `codellama`). Use the exact name in `OLLAMA_MODEL` or in `/api/pull`.
 
 ### Ports
 
@@ -159,6 +169,33 @@ curl http://localhost:11434/api/tags
 
 Use the `name` (or `name` without `:latest`) in your IDE as the model ID.
 
+## 🔄 Keeping Things Updated
+
+- **Ollama (Docker image)**: Pull the latest image and recreate the container:
+  ```bash
+  docker-compose pull ollama
+  docker-compose up -d ollama
+  ```
+- **Models**: The API supports pulling by tag (e.g. `llama3.2:latest`). To refresh a model to the latest version, pull again:
+  ```bash
+  curl -X POST http://localhost:11434/api/pull -d '{"model":"qwen3-coder:7b"}'
+  ```
+  Or from inside the container: `docker exec ollama-qwen3 ollama pull qwen3-coder:7b`. New tags and models appear in the [Ollama library](https://ollama.com/library); there is no separate “model API” — you use the same `/api/pull` with the model name.
+
+## 📡 Ollama API & Model Library
+
+Ollama exposes a REST API on port `11434`. Official docs: [Ollama API](https://ollama.com/docs/api).
+
+| Action        | Method | Endpoint       | Example |
+|---------------|--------|----------------|---------|
+| List models   | GET    | `/api/tags`    | `curl http://localhost:11434/api/tags` |
+| Pull model    | POST   | `/api/pull`    | `curl -X POST http://localhost:11434/api/pull -d '{"model":"llama3.2"}'` |
+| Generate      | POST   | `/api/generate`| `curl -X POST http://localhost:11434/api/generate -d '{"model":"...","prompt":"..."}'` |
+| Chat (OpenAI) | POST   | `/v1/chat/completions` | Use base URL `http://localhost:11434/v1` for OpenAI-compatible clients |
+
+- **Model library**: [ollama.com/library](https://ollama.com/library) — browse and copy model names for `OLLAMA_MODEL` or `/api/pull`.
+- **API reference**: [ollama.com/docs/api](https://ollama.com/docs/api) for full request/response formats.
+
 ## ⚙️ Environment Variables
 
 All sensitive values live in `.env` (copy from `.env.example`). Do not commit `.env`.
@@ -166,6 +203,7 @@ All sensitive values live in `.env` (copy from `.env.example`). Do not commit `.
 ### Ollama
 
 - `OLLAMA_HOST`: Host to bind (default: `0.0.0.0`)
+- `OLLAMA_MODEL`: Override auto-selected model (optional). Examples: `llama3.2`, `mistral`, `codellama`, `deepseek-coder`. Leave empty for hardware-based default.
 
 ### ngrok
 
