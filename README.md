@@ -43,7 +43,8 @@ docker-compose up -d
 ollama-coding/
 ├── .env                  # Your secrets (create from .env.example, do not commit)
 ├── .env.example          # Template for environment variables
-├── docker-compose.yml    # Docker services configuration
+├── docker-compose.yml    # Docker services (NVIDIA GPU)
+├── docker-compose.amd.yml # Alternative: AMD GPU (use when AMD has more VRAM)
 ├── entrypoint.sh         # Ollama initialization script with hardware detection
 ├── ngrok-entrypoint.sh   # Ngrok wrapper (optional reserved domain)
 └── README.md             # This file
@@ -53,11 +54,11 @@ ollama-coding/
 
 ### Models by Hardware
 
-The `entrypoint.sh` script picks a model from available VRAM in **megabytes** (override with `OLLAMA_MODEL`). Model names match the [Ollama library](https://ollama.com/library). **qwen3-coder (v3)** is preferred when VRAM allows; it has no 7B variant, so 8GB and below use qwen2.5-coder.
+The `entrypoint.sh` script picks a model from **total** VRAM in **megabytes** (override with `OLLAMA_MODEL`). On multi-GPU systems, VRAM from all visible NVIDIA GPUs is summed, so e.g. 2×8GB → 16GB and the 30B model can be selected. Model names match the [Ollama library](https://ollama.com/library). **qwen3-coder (v3)** is preferred when VRAM allows; it has no 7B variant, so 8GB and below use qwen2.5-coder.
 
-- **≥16GB VRAM**: `qwen3-coder:30b-a3b-q4_K_M` (~19GB) — qwen3-coder v3
-- **≥8GB VRAM**: `qwen2.5-coder:7b` (~4.7GB)
-- **<8GB VRAM**: `qwen2.5-coder:3b` (~1.9GB)
+- **≥16GB total VRAM**: `qwen3-coder:30b-a3b-q4_K_M` (~19GB) — qwen3-coder v3
+- **≥8GB total VRAM**: `qwen2.5-coder:7b` (~4.7GB)
+- **<8GB total VRAM**: `qwen2.5-coder:3b` (~1.9GB)
 
 ### Using Other Models
 
@@ -68,6 +69,17 @@ To use a different model (e.g. **qwen3-coder** v3 when you have enough VRAM, or 
    - **From host**: `curl -X POST http://localhost:11434/api/pull -d '{"model":"mistral"}'`
    - **Inside container**: `docker exec ollama-qwen3 ollama pull mistral`
 3. **Browse the library**: [Ollama Model Library](https://ollama.com/library) lists official models and tags. Use the exact tag in `OLLAMA_MODEL` or in `/api/pull`. For coding, **qwen3-coder** (v3) is the current preferred series when VRAM allows (e.g. 16GB+ for 30B).
+
+### Multiple GPUs and NPU
+
+- **Multiple GPUs (NVIDIA only)**: Supported. The stack exposes **only NVIDIA GPUs** to the container (`count: all` for NVIDIA devices). Ollama schedules models across them and can split a single model over multiple GPUs. The entrypoint **sums VRAM** from all visible NVIDIA GPUs to choose the default model (e.g. 2×8GB → 16GB → qwen3-coder 30B). To limit which NVIDIA GPUs are used, set `CUDA_VISIBLE_DEVICES` in `.env` (e.g. `CUDA_VISIBLE_DEVICES=0,1`). Optionally set `OLLAMA_NUM_PARALLEL` to allow more concurrent requests on multi-GPU or high-memory systems.
+- **Mixed GPUs (NVIDIA + non-NVIDIA)**: Ollama uses **one backend at a time** (CUDA, ROCm, or Vulkan). **VRAM from different vendors cannot be combined** into one model; you cannot add NVIDIA VRAM + AMD VRAM. The default stack uses **only NVIDIA** (CUDA). Any other GPU (AMD, Intel) or NPU is ignored in that setup. So e.g. 1× NVIDIA 8GB + 1× AMD 12GB → only 8GB is used and the 7B model is selected; the AMD GPU is unused.
+- **Using the non-NVIDIA GPU when it has more VRAM**: You can **run Ollama on the GPU with more VRAM** instead:
+  - **AMD (more VRAM than NVIDIA)**: Use the AMD stack: `docker compose -f docker-compose.amd.yml up -d`. Requires [ROCm](https://docs.ollama.com/gpu#amd-radeon) on the host (Linux) or AMD drivers (Windows). Set `OLLAMA_MODEL` in `.env` to the model you want (e.g. `qwen3-coder:30b-a3b-q4_K_M` for ~19GB); the entrypoint’s VRAM detection is NVIDIA-only, so it won’t auto-pick by AMD VRAM. Use `ROCR_VISIBLE_DEVICES` to limit which AMD GPUs are used.
+  - **Intel GPU**: Ollama has **experimental Vulkan** support for Intel (and some AMD) GPUs. Set `OLLAMA_VULKAN=1` in `.env` when using the default (NVIDIA) image; see [Ollama GPU docs](https://docs.ollama.com/gpu#vulkan-gpu-support). Vulkan is experimental; Docker device access for Intel GPUs may require extra setup on the host.
+- **NPU (Intel/other)**: Ollama does **not** support NPU acceleration; only NVIDIA GPUs, AMD (ROCm), and experimental Vulkan (Intel/AMD) are used. NPU support is a requested feature; for now NPUs cannot be used with this stack.
+
+- **Dedicated VRAM vs shared memory (laptops / integrated GPUs)**: Some systems have both a discrete NVIDIA GPU (dedicated VRAM) and an integrated or secondary GPU (e.g. Intel Arc, AMD iGPU) that reports a large “GPU memory” in the OS. That value is usually **shared system RAM**, not dedicated VRAM: the integrated GPU uses part of system memory, so it does not provide an equivalent amount of fast VRAM for LLMs. Ollama cannot combine dedicated VRAM (NVIDIA) with that shared memory in one model. In such setups, **using the discrete NVIDIA GPU (default stack) is typically the best option** for speed. To run a larger model than fits in dedicated VRAM, set `OLLAMA_MODEL` to the desired model; Ollama will use system RAM for the overflow (slower but possible). Optionally, `OLLAMA_VULKAN=1` can be used to try the integrated/secondary GPU via Vulkan (experimental); inference is often slower than on the discrete NVIDIA GPU.
 
 ### Ports
 
@@ -204,6 +216,9 @@ All sensitive values live in `.env` (copy from `.env.example`). Do not commit `.
 
 - `OLLAMA_HOST`: Host to bind (default: `0.0.0.0`)
 - `OLLAMA_MODEL`: Override auto-selected model (optional). Prefer **qwen3-coder** (v3) when VRAM allows, e.g. `qwen3-coder:30b-a3b-q4_K_M`. Others: `llama3.2`, `mistral`, `qwen2.5-coder:7b`. Leave empty for hardware-based default.
+- `CUDA_VISIBLE_DEVICES`: Which NVIDIA GPUs to use (optional). Leave empty to use all. Set e.g. `0,1` to use only GPU 0 and 1. Total VRAM of visible GPUs is summed for model selection.
+- `OLLAMA_NUM_PARALLEL`: Max concurrent requests (optional). Increase on multi-GPU or high-memory systems. Default is 1.
+- `OLLAMA_VULKAN`: Set to `1` for experimental Intel/AMD GPU support via Vulkan (optional). See [Ollama GPU docs](https://docs.ollama.com/gpu#vulkan-gpu-support).
 
 ### ngrok
 
